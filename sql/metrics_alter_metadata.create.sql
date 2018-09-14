@@ -1,26 +1,31 @@
---! 报警表结构
-create table metrics_alert_metadata
+--! create table
+CREATE TABLE metrics_alert_metadata
 (
-    event_key text,  -- 哪个eventKey计算有问题了
-    platform text,
-    os text,
-    pv_ring_ratio, -- 环比增长幅
-    uv_ring_ratio, 
-    warning_level_status text, -- 报警级别是啥
-
-    pv_per_user_ratio, -- 这个数据的意义是什么，有没有更好的直观指标
-
-    create_date timestamp, -- 代表几号报警
-    update_date timestamp
+    id SERIAL PRIMARY KEY,
+    day TIMESTAMP,
+    event_key TEXT NOT NULL,
+    platform TEXT NOT NULL,
+    os TEXT NOT NULL,
+    pv_ring_ratio NUMERIC,
+    uv_ring_ratio NUMERIC,
+    warning_level_status TEXT, --! serious>general>caveat>normal
+    pv_per_user_ratio NUMERIC, --! 目前计算含义不明
+    creat_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 )
 
+--! create index
+CREATE INDEX idx_metrics_alert_event_key_warning_level_status ON metrics_alert_metadata USING btree(event_key, warning_level_status);
+
 --！计算某日环比的逻辑
+insert into metrics_alert_metadata(day, event_key, platform, os, pv_ring_ratio, uv_ring_ratio, warning_level_status )
 select 
-  ring_ration.event_key,
-  ring_ration.platform,
-  ring_ration.os,
-  ring_ration.percentofpv,
-  ring_ration.percentofuv,
+  ring_ration.day as day,
+  ring_ration.event_key as event_key,
+  ring_ration.platform as platform,
+  ring_ration.os as os,
+  ring_ration.percentofpv as pv_ring_ratio,
+  ring_ration.percentofuv as uv_ring_ratio,
   case 
   	when ring_ration.abs_uv >= 0.5 or ring_ration.abs_pv >= 0.5
       then 'serious'
@@ -31,7 +36,6 @@ select
 	  when ring_ration.abs_uv <= 0.2 or ring_ration.abs_pv <= 0.2
 	    then 'normal'
   end as warning_level_status
-  ring_ration.day
 from 
 (
   select 
